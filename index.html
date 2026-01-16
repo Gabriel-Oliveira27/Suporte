@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suporte T.I Automatizado</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    
+    <!-- ========================================== -->
+    <!-- UI 1: TELA DE SELEÇÃO DE USUÁRIO (NETFLIX STYLE) -->
+    <!-- ========================================== -->
+    <div id="user-selection-screen" class="screen active">
+        <div class="selection-container">
+            <h1 class="selection-title">Quem está usando?</h1>
+            <div id="user-cards" class="user-cards">
+                <!-- Cards serão injetados via JavaScript -->
+                <!-- Para adicionar mais usuários, edite o array USERS em script.js -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- UI 2: SISTEMA DE CHAT -->
+    <!-- ========================================== -->
+    <div id="chat-screen" class="screen">
+        
+        <!-- HEADER -->
+        <header class="app-header">
+            <div class="header-left">
+                <button id="menu-toggle" class="menu-toggle" aria-label="Menu">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <div class="header-branding">
+                    <svg class="header-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span class="header-title">Suporte T.I automatizado</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="current-user" id="current-user">
+                    <!-- Foto e nome do usuário injetados via JS -->
+                </div>
+            </div>
+        </header>
+
+        <!-- LAYOUT PRINCIPAL -->
+        <div class="main-layout">
+            
+            <!-- MENU LATERAL (COLAPSÁVEL) -->
+            <aside id="sidebar" class="sidebar collapsed">
+                <nav class="sidebar-nav">
+                    <button class="nav-item active" data-view="chat">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                        <span class="nav-text">Chat</span>
+                    </button>
+                    <button class="nav-item" data-view="profile">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        <span class="nav-text">Perfil</span>
+                    </button>
+                    <button class="nav-item" data-view="theme">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <line x1="12" y1="1" x2="12" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="23"></line>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                            <line x1="1" y1="12" x2="3" y2="12"></line>
+                            <line x1="21" y1="12" x2="23" y2="12"></line>
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                        </svg>
+                        <span class="nav-text">Tema</span>
+                    </button>
+                    <button class="nav-item nav-item-danger" data-view="logout">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                        <span class="nav-text">Sair</span>
+                    </button>
+                </nav>
+            </aside>
+
+            <!-- ÁREA DE CONTEÚDO -->
+            <main class="content-area">
+                
+                <!-- ABA: CHAT -->
+                <div id="view-chat" class="view active">
+                    <div class="chat-container">
+                        <div id="messages" class="messages-area">
+                            <div class="welcome-message">
+                                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                                <h2>Olá! Como posso ajudar?</h2>
+                                <p>Digite sua dúvida abaixo e receba suporte automatizado.</p>
+                            </div>
+                        </div>
+                        <div class="chat-input-area">
+                            <div class="input-wrapper">
+                                <textarea 
+                                    id="message-input" 
+                                    placeholder="Digite sua dúvida..." 
+                                    rows="1"
+                                    maxlength="1000"></textarea>
+                                <button id="send-button" class="send-button" aria-label="Enviar">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ABA: PERFIL -->
+                <div id="view-profile" class="view">
+                    <div class="profile-container">
+                        <h2 class="view-title">Perfil do Usuário</h2>
+                        
+                        <div class="profile-photo-section">
+                            <!-- ESTADO INICIAL: Foto atual -->
+                            <div id="photo-current-state" class="photo-current-state">
+                                <div class="photo-preview" id="photo-preview">
+                                    <!-- Foto atual ou SVG padrão -->
+                                </div>
+                                <div class="photo-upload">
+                                    <label for="photo-input" class="upload-label">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                            <polyline points="17 8 12 3 7 8"></polyline>
+                                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                                        </svg>
+                                        Alterar Foto
+                                    </label>
+                                    <input type="file" id="photo-input" accept="image/*" style="display: none;">
+                                </div>
+                            </div>
+
+                            <!-- ESTADO DE PREVIEW: Antes/Depois -->
+                            <div id="photo-preview-state" class="photo-preview-state" style="display: none;">
+                                <div class="before-after-container">
+                                    <div class="before-section">
+                                        <label>Foto Atual</label>
+                                        <div class="photo-preview-small" id="photo-before">
+                                            <!-- Foto atual -->
+                                        </div>
+                                    </div>
+                                    <div class="arrow-separator">
+                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                                            <polyline points="12 5 19 12 12 19"></polyline>
+                                        </svg>
+                                    </div>
+                                    <div class="after-section">
+                                        <label>Nova Foto</label>
+                                        <div class="photo-preview-small" id="photo-after">
+                                            <!-- Preview da nova foto -->
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="photo-info">
+                                    <span id="new-photo-name"></span>
+                                    <span id="new-photo-size"></span>
+                                </div>
+                                <div class="photo-actions">
+                                    <button id="cancel-photo-btn" class="btn-cancel" onclick="cancelPhotoChange()">Cancelar</button>
+                                    <button id="save-photo-btn" class="btn-save" onclick="savePhotoChange()">Salvar Foto</button>
+                                </div>
+                            </div>
+
+                            <!-- ESTADO DE UPLOAD: Loading -->
+                            <div id="photo-uploading-state" class="photo-uploading-state" style="display: none;">
+                                <div class="upload-loader">
+                                    <div class="spinner"></div>
+                                    <p>Salvando foto...</p>
+                                </div>
+                            </div>
+
+                            <!-- MENSAGEM DE SUCESSO/ERRO -->
+                            <div id="photo-message" class="photo-message" style="display: none;"></div>
+                        </div>
+
+                        <div class="profile-info">
+                            <div class="info-item">
+                                <label>Nome</label>
+                                <p id="profile-name"></p>
+                            </div>
+                            <div class="info-item">
+                                <label>ID do Usuário</label>
+                                <p id="profile-id"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ABA: TEMA -->
+                <div id="view-theme" class="view">
+                    <div class="theme-container">
+                        <h2 class="view-title">Personalização</h2>
+                        
+                        <div class="theme-options">
+                            <div class="theme-option" data-theme="light">
+                                <div class="theme-preview theme-preview-light">
+                                    <div class="preview-header"></div>
+                                    <div class="preview-content">
+                                        <div class="preview-box"></div>
+                                        <div class="preview-box"></div>
+                                    </div>
+                                </div>
+                                <div class="theme-info">
+                                    <h3>Tema Claro</h3>
+                                    <p>Visual limpo e profissional</p>
+                                </div>
+                                <div class="theme-radio">
+                                    <input type="radio" name="theme" value="light" id="theme-light">
+                                </div>
+                            </div>
+
+                            <div class="theme-option" data-theme="dark">
+                                <div class="theme-preview theme-preview-dark">
+                                    <div class="preview-header"></div>
+                                    <div class="preview-content">
+                                        <div class="preview-box"></div>
+                                        <div class="preview-box"></div>
+                                    </div>
+                                </div>
+                                <div class="theme-info">
+                                    <h3>Tema Escuro</h3>
+                                    <p>Reduz cansaço visual</p>
+                                </div>
+                                <div class="theme-radio">
+                                    <input type="radio" name="theme" value="dark" id="theme-dark">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
