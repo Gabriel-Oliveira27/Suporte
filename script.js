@@ -3,7 +3,7 @@
 /* ========================================== */
 
 // ⚠️ WEBHOOK DO N8N - ALTERAR AQUI QUANDO INTEGRAR BACKEND
-const N8N_WEBHOOK_URL = 'https://gabrielsup.app.n8n.cloud/webhook/suporte-t.i'; // Ex: 'https://seu-n8n.com/webhook/suporte-ti'
+const N8N_WEBHOOK_URL = 'https://gabrielsup.app.n8n.cloud/webhook-test/suporte-t.i'; // Ex: 'https://seu-n8n.com/webhook/suporte-ti'
 
 // ⚠️ LISTA DE USUÁRIOS - ADICIONAR/REMOVER USUÁRIOS AQUI
 // Para adicionar foto: coloque o caminho em "photo" (ex: "assets/gabriel.jpg")
@@ -331,18 +331,31 @@ function removeLoadingMessage() {
 // ========================================== 
 // INTEGRAÇÃO COM N8N
 // ========================================== 
+const firstName = currentUser.name
+  .split('|')[0]
+  .trim()
+  .split(' ')[0];
+
 
 async function sendToN8N(messageText) {
     // Prepara payload conforme contrato especificado
+
+    const firstName = currentUser.name
+  .split('|')[0]
+  .trim()
+  .split(' ')[0];
+
     const payload = {
         event: 'chat_message',
+        
         user: {
             id: currentUser.id,
-            name: currentUser.name
+            name: firstName
+                    
         },
         session: {
             id: sessionId,
-            startedAt: new Date(sessionId.split('_')[1]).toISOString()
+            startedAt: new Date(Number(sessionId.split('_')[1])).toISOString()
         },
         message: {
             type: 'text',
