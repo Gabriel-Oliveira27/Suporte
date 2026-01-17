@@ -3,7 +3,7 @@
 /* ========================================== */
 
 // ⚠️ WEBHOOK DO N8N - ALTERAR AQUI QUANDO INTEGRAR BACKEND
-const N8N_WEBHOOK_URL = 'https://suporte.gab-oliveirab27.workers.dev'; 
+const N8N_WEBHOOK_URL = 'https://gabrielsup.app.n8n.cloud/webhook-test/suporte-t.i'; 
 
 // ⚠️ LISTA DE USUÁRIOS - ADICIONAR/REMOVER USUÁRIOS AQUI
 // Para adicionar foto: coloque o caminho em "photo" (ex: "assets/gabriel.jpg")
@@ -335,99 +335,70 @@ function removeLoadingMessage() {
 
 
 async function sendToN8N(messageText) {
-  // garante que o usuário foi selecionado
+  // ✅ Garante que o usuário foi selecionado
   const safeUser = currentUser || { id: 'visitor', name: 'Visitante' };
+  const firstName = safeUser.name ? safeUser.name.split('|')[0].trim().split(' ')[0] : 'Visitante';
 
-  const firstName = safeUser.name
-    ? String(safeUser.name).split('|')[0].trim().split(' ')[0] || 'Visitante'
-    : 'Visitante';
-
+  // payload padrão
   const payload = {
     event: 'chat_message',
-    user: {
-      id: safeUser.id || 'visitor',
-      name: firstName
-    },
-    session: {
-      id: sessionId || `session_${Date.now()}`,
-      startedAt: sessionId ? new Date(Number(sessionId.split('_')[1])).toISOString() : new Date().toISOString()
-    },
-    message: {
-      type: 'text',
-      content: messageText
-    },
-    meta: {
-      origin: 'frontend',
-      ui: 'chat'
-    }
+    user: { id: safeUser.id, name: firstName },
+    session: { id: sessionId || `session_${Date.now()}`, startedAt: new Date().toISOString() },
+    message: { type: 'text', content: messageText },
+    meta: { origin: 'frontend', ui: 'chat' }
   };
 
+  // Mostra no console
   console.log('-> Enviando payload para n8n:', payload);
 
+  // Remove loader antigo
+  removeLoadingMessage();
+  addLoadingMessage();
+
   try {
+    // ⚠️ Se não configurar webhook, usa resposta simulada
+    if (N8N_WEBHOOK_URL === 'COLE_AQUI') {
+      console.warn('⚠️ URL do webhook n8n não configurada. Resposta simulada.');
+      addMessage('bot', 'Resposta simulada: não há conexão real com n8n.');
+      removeLoadingMessage();
+      return;
+    }
+
+    // Fetch para n8n
     const response = await fetch(N8N_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      // OBS: não dá pra consertar CORS do lado do cliente se o servidor não responder ao OPTIONS corretamente
     });
 
-    // Se o fetch falhar por CORS, cai direto no catch (Failed to fetch)
-    if (!response.ok) {
-      const txt = await response.text().catch(() => '');
-      throw new Error(`Erro HTTP: ${response.status} ${response.statusText} ${txt}`);
-    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    // tenta parsear JSON; se não for JSON, pega texto
     let data;
-    try {
-      data = await response.json();
-    } catch (e) {
-      const raw = await response.text();
-      console.warn('Resposta não-JSON do n8n:', raw);
-      data = raw;
-    }
+    try { data = await response.json(); } catch { data = await response.text(); }
 
     console.log('<- Resposta bruta do n8n:', data);
 
-    // Normaliza resposta (aceita array / objeto / formatos diferentes)
-    let item = data;
-    if (Array.isArray(data)) {
-      item = data[0] && (data[0].json ? data[0].json : data[0]);
-    }
-    // tenta extrair texto em várias formas possíveis
-    const text =
-      (item && (item.response && (typeof item.response === 'string' ? item.response : item.response.text))) ||
-      item?.response?.text ||
-      item?.response ||
-      item?.answer ||
-      item?.text ||
-      (typeof data === 'string' ? data : null);
+    // Extrai texto de forma simples
+    let text = '';
+    if (Array.isArray(data) && data[0]?.response) text = data[0].response;
+    else if (data.response) text = data.response;
+    else if (typeof data === 'string') text = data;
+    else text = 'Desculpe, não consegui processar sua solicitação.';
 
-    // Remove loader
-    removeLoadingMessage();
-
-    if (text) {
-      addMessage('bot', String(text));
-    } else {
-      console.warn('Resposta sem campo text detectada:', data);
-      addMessage('bot', 'Desculpe, não consegui processar sua solicitação.');
-    }
-
+    addMessage('bot', text);
   } catch (error) {
     console.error('Erro ao comunicar com n8n:', error);
-
-    // Detecta indícios de CORS
-    const errMsg = (error && error.message) ? error.message : String(error);
-    if (errMsg.includes('Failed to fetch') || errMsg.toLowerCase().includes('cors') || errMsg.toLowerCase().includes('preflight')) {
-      addMessage('bot', 'Erro de conexão: verifique CORS no n8n ou use o Worker proxy.');
+    const errMsg = String(error).toLowerCase();
+    if (errMsg.includes('cors') || errMsg.includes('failed to fetch')) {
+      addMessage('bot', 'Erro de conexão: CORS bloqueando. Use Worker proxy ou configure n8n.');
     } else {
       addMessage('bot', 'Erro ao conectar com o servidor. Tente novamente.');
     }
-
+  } finally {
     removeLoadingMessage();
   }
 }
+
 
 // Função simulada para teste (quando n8n não está configurado)
 function simulateN8NResponse(messageText) {
