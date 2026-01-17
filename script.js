@@ -396,11 +396,13 @@ async function sendToN8N(messageText) {
         removeLoadingMessage();
         
         // Renderiza resposta do bot
-        if (data.response && data.response.text) {
-            addMessage('bot', data.response.text);
-        } else {
-            addMessage('bot', 'Desculpe, não consegui processar sua solicitação.');
-        }
+       const item = Array.isArray(data) ? data[0] : data;
+
+if (item?.response) {
+    addMessage('bot', item.response);
+} else {
+    addMessage('bot', 'Desculpe, não consegui processar sua solicitação.');
+}
         
     } catch (error) {
         console.error('Erro ao comunicar com n8n:', error);
