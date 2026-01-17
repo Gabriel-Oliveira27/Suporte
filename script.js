@@ -331,10 +331,7 @@ function removeLoadingMessage() {
 // ========================================== 
 // INTEGRAÇÃO COM N8N
 // ========================================== 
-const firstName = currentUser.name
-  .split('|')[0]
-  .trim()
-  .split(' ')[0];
+
 
 
 async function sendToN8N(messageText) {
