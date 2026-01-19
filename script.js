@@ -3,7 +3,7 @@
 /* ========================================== */
 
 // ⚠️ WEBHOOK DO N8N - ALTERAR AQUI QUANDO INTEGRAR BACKEND
-const N8N_WEBHOOK_URL = 'https://gabrielsup.app.n8n.cloud/webhook-test/suporte-t.i'; 
+const N8N_WEBHOOK_URL = 'https://gabrielsup.app.n8n.cloud/webhook/suporte-t.i'; 
 
 // ⚠️ LISTA DE USUÁRIOS - ADICIONAR/REMOVER USUÁRIOS AQUI
 // Para adicionar foto: coloque o caminho em "photo" (ex: "assets/gabriel.jpg")
