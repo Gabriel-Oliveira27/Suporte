@@ -3,7 +3,7 @@
 /* ========================================== */
 
 // ⚠️ WEBHOOK DO N8N - ALTERAR AQUI QUANDO INTEGRAR BACKEND
-const N8N_WEBHOOK_URL = 'https://gabrielsup.app.n8n.cloud/webhook-test/suporte-t.i'; 
+const N8N_WEBHOOK_URL = 'https://gabrielsup.app.n8n.cloud/webhook/suporte-t.i'; 
 
 // ⚠️ LISTA DE USUÁRIOS - ADICIONAR/REMOVER USUÁRIOS AQUI
 // Para adicionar foto: coloque o caminho em "photo" (ex: "assets/gabriel.jpg")
@@ -15,9 +15,14 @@ const USERS = [
         photo: null // SVG padrão será usado
     },
     {
-        id: 'gabriel_adm',
+        id: 'gabriel',
         name: 'Gabriel Oliveira | Adm',
         photo: 'images/gabriel.jpg'
+    },
+    {
+        id: 'hanna',
+        name: 'Hanna Conrado',
+        photo: 'null'
     }
 ];
 
@@ -29,6 +34,8 @@ let currentUser = null;
 let sessionId = null;
 let messages = [];
 let currentTheme = localStorage.getItem('theme') || 'light';
+let currentQuestion = null; // Armazena a pergunta original para feedback
+let isConversationFinished = false; // Controla se a conversa foi finalizada
 
 // ========================================== 
 // SVG PADRÃO PARA USUÁRIOS SEM FOTO
@@ -244,6 +251,15 @@ async function sendMessage() {
     
     if (!text) return;
     
+    // Verifica se a conversa já foi finalizada
+    if (isConversationFinished) {
+        alert('Esta conversa foi finalizada. Faça uma nova pergunta para começar outra conversa.');
+        return;
+    }
+    
+    // Armazena a pergunta original
+    currentQuestion = text;
+    
     // Limpa input
     input.value = '';
     input.style.height = 'auto';
@@ -255,8 +271,8 @@ async function sendMessage() {
     // Adiciona mensagem do usuário
     addMessage('user', text);
     
-    // Mostra loader
-    addLoadingMessage();
+    // Mostra fluxo de estados sequenciais
+    await renderStatusFlow();
     
     // Envia para n8n
     await sendToN8N(text);
@@ -351,16 +367,16 @@ async function sendToN8N(messageText) {
   // Mostra no console
   console.log('-> Enviando payload para n8n:', payload);
 
-  // Remove loader antigo
-  removeLoadingMessage();
-  addLoadingMessage();
-
   try {
     // ⚠️ Se não configurar webhook, usa resposta simulada
     if (N8N_WEBHOOK_URL === 'COLE_AQUI') {
       console.warn('⚠️ URL do webhook n8n não configurada. Resposta simulada.');
-      addMessage('bot', 'Resposta simulada: não há conexão real com n8n.');
-      removeLoadingMessage();
+      
+      // Remove fluxo de status
+      removeStatusFlow();
+      
+      // Usa resposta estruturada simulada
+      simulateStructuredResponse(messageText);
       return;
     }
 
@@ -378,48 +394,453 @@ async function sendToN8N(messageText) {
 
     console.log('<- Resposta bruta do n8n:', data);
 
-    // Extrai texto de forma simples
-    let text = '';
-    if (Array.isArray(data) && data[0]?.response) text = data[0].response;
-    else if (data.response) text = data.response;
-    else if (typeof data === 'string') text = data;
-    else text = 'Desculpe, não consegui processar sua solicitação.';
+    // Remove fluxo de status
+    removeStatusFlow();
 
-    addMessage('bot', text);
+    // Verifica se a resposta está no formato estruturado
+    if (data.type === 'answer' && data.message) {
+      // Renderiza resposta estruturada
+      renderMessage(data);
+    } else {
+      // Fallback: renderiza como mensagem simples
+      let text = '';
+      if (Array.isArray(data) && data[0]?.response) text = data[0].response;
+      else if (data.response) text = data.response;
+      else if (typeof data === 'string') text = data;
+      else text = 'Desculpe, não consegui processar sua solicitação.';
+
+      addMessage('bot', text);
+    }
   } catch (error) {
     console.error('Erro ao comunicar com n8n:', error);
+    
+    // Remove fluxo de status
+    removeStatusFlow();
+    
     const errMsg = String(error).toLowerCase();
     if (errMsg.includes('cors') || errMsg.includes('failed to fetch')) {
       addMessage('bot', 'Erro de conexão: CORS bloqueando. Use Worker proxy ou configure n8n.');
     } else {
       addMessage('bot', 'Erro ao conectar com o servidor. Tente novamente.');
     }
-  } finally {
-    removeLoadingMessage();
   }
 }
 
-
 // Função simulada para teste (quando n8n não está configurado)
-function simulateN8NResponse(messageText) {
+function simulateStructuredResponse(messageText) {
     setTimeout(() => {
-        removeLoadingMessage();
+        removeStatusFlow();
         
-        // Respostas simuladas baseadas em palavras-chave
-        let responseText = 'Entendi sua dúvida. Como posso ajudar mais?';
+        // Exemplo de resposta estruturada simulada
+        const mockResponse = {
+            type: 'answer',
+            message: {
+                title: 'Como resolver problemas de login',
+                body: 'Identificamos que você está com dificuldades para acessar o sistema.',
+                solution: 'Para resolver esse problema:\n\n1. Limpe o cache do navegador\n2. Tente usar o modo anônimo/privado\n3. Verifique se seu usuário está ativo\n4. Certifique-se de usar a senha correta\n\nSe o problema persistir, entre em contato com o suporte técnico.'
+            },
+            actions: [
+                { id: 'helped', label: 'Isso me ajudou' },
+                { id: 'not_helped', label: 'Não é o que eu procurava' }
+            ],
+            alternatives: [
+                {
+                    id: 'alt_1',
+                    title: 'Redefinir senha',
+                    solution: 'Clique em "Esqueci minha senha" na tela de login e siga as instruções enviadas por e-mail.'
+                },
+                {
+                    id: 'alt_2',
+                    title: 'Conta bloqueada',
+                    solution: 'Se sua conta foi bloqueada após múltiplas tentativas, aguarde 30 minutos ou entre em contato com o suporte.'
+                },
+                {
+                    id: 'alt_3',
+                    title: 'Problemas com autenticação',
+                    solution: 'Verifique se a autenticação de dois fatores está configurada corretamente no seu dispositivo.'
+                }
+            ]
+        };
         
-        const lowerText = messageText.toLowerCase();
-        
-        if (lowerText.includes('erro') || lowerText.includes('problema')) {
-            responseText = 'Identifiquei que você está com um erro. Para resolver:\n\n1. Verifique se está na última versão do sistema\n2. Limpe o cache do navegador\n3. Tente novamente\n\nSe o erro persistir, entre em contato com o suporte técnico.';
-        } else if (lowerText.includes('nf-e') || lowerText.includes('nota fiscal')) {
-            responseText = 'Para gerar NF-e:\n\n1. Acesse "Faturamento > Notas Fiscais"\n2. Clique em "Nova NF-e"\n3. Preencha os dados do cliente\n4. Adicione os produtos/serviços\n5. Clique em "Emitir NF-e"\n\nPrecisa de mais ajuda?';
-        } else if (lowerText.includes('senha') || lowerText.includes('login')) {
-            responseText = 'Para recuperar sua senha:\n\n1. Clique em "Esqueci minha senha"\n2. Digite seu e-mail cadastrado\n3. Verifique sua caixa de entrada\n4. Clique no link recebido\n5. Crie uma nova senha\n\nSe não receber o e-mail, verifique a pasta de spam.';
+        renderMessage(mockResponse);
+    }, 800); // Simula delay de processamento
+}
+
+// ========================================== 
+// FLUXO DE ESTADOS SEQUENCIAIS
+// ========================================== 
+
+/**
+ * Renderiza o fluxo de estados ao enviar uma pergunta:
+ * 1. "Enviado"
+ * 2. "Consultando base de dados"
+ * 3. "Formulando resposta"
+ * 4. "Já sei!"
+ */
+async function renderStatusFlow() {
+    const messagesArea = document.getElementById('messages');
+    
+    // Cria elemento de status
+    const statusDiv = document.createElement('div');
+    statusDiv.className = 'message bot status-flow';
+    statusDiv.id = 'status-flow-message';
+    
+    statusDiv.innerHTML = `
+        <div class="message-avatar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+        </div>
+        <div>
+            <div class="message-bubble status-bubble">
+                <div class="status-steps" id="status-steps">
+                    <div class="status-step" data-step="1">
+                        <div class="status-icon">⏳</div>
+                        <span>Enviado</span>
+                    </div>
+                    <div class="status-step" data-step="2">
+                        <div class="status-icon">🔍</div>
+                        <span>Consultando base de dados</span>
+                    </div>
+                    <div class="status-step" data-step="3">
+                        <div class="status-icon">💭</div>
+                        <span>Formulando resposta</span>
+                    </div>
+                    <div class="status-step" data-step="4">
+                        <div class="status-icon">✅</div>
+                        <span>Já sei!</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    messagesArea.appendChild(statusDiv);
+    scrollToBottom();
+    
+    // Ativa cada etapa sequencialmente
+    const steps = [1, 2, 3, 4];
+    for (let i = 0; i < steps.length; i++) {
+        await new Promise(resolve => setTimeout(resolve, 600)); // Delay entre etapas
+        const stepEl = statusDiv.querySelector(`[data-step="${steps[i]}"]`);
+        if (stepEl) {
+            stepEl.classList.add('active');
+            scrollToBottom();
         }
+    }
+    
+    // Aguarda um pouco antes de remover
+    await new Promise(resolve => setTimeout(resolve, 400));
+}
+
+/**
+ * Remove o fluxo de status da tela
+ */
+function removeStatusFlow() {
+    const statusMsg = document.getElementById('status-flow-message');
+    if (statusMsg) statusMsg.remove();
+}
+
+// ========================================== 
+// RENDERIZAÇÃO ESTRUTURADA DE RESPOSTAS
+// ========================================== 
+
+/**
+ * Renderiza mensagem estruturada do backend com:
+ * - Título, corpo e solução
+ * - Botões de ação
+ * - Cards de alternativas (se aplicável)
+ * 
+ * @param {Object} responseData - JSON retornado do backend
+ */
+function renderMessage(responseData) {
+    const messagesArea = document.getElementById('messages');
+    
+    // Cria container da mensagem
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message bot structured';
+    
+    const avatarHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+    `;
+    
+    let contentHTML = `
+        <div class="message-avatar">${avatarHTML}</div>
+        <div class="structured-content">
+    `;
+    
+    // Renderiza título, corpo e solução
+    if (responseData.message) {
+        const msg = responseData.message;
         
-        addMessage('bot', responseText);
-    }, 1500); // Simula delay de processamento
+        contentHTML += `
+            <div class="message-bubble structured-bubble">
+                ${msg.title ? `<h3 class="message-title">${escapeHTML(msg.title)}</h3>` : ''}
+                ${msg.body ? `<p class="message-body">${escapeHTML(msg.body)}</p>` : ''}
+                ${msg.solution ? `<div class="message-solution">${escapeHTML(msg.solution)}</div>` : ''}
+            </div>
+        `;
+    }
+    
+    // Renderiza botões de ação
+    if (responseData.actions && responseData.actions.length > 0) {
+        contentHTML += renderActions(responseData.actions, responseData.alternatives);
+    }
+    
+    contentHTML += `
+            <div class="message-time">${getCurrentTime()}</div>
+        </div>
+    `;
+    
+    messageDiv.innerHTML = contentHTML;
+    messagesArea.appendChild(messageDiv);
+    scrollToBottom();
+}
+
+/**
+ * Renderiza botões de ação abaixo da resposta principal
+ * 
+ * @param {Array} actions - Lista de ações [{id, label}]
+ * @param {Array} alternatives - Lista de alternativas (opcional)
+ */
+function renderActions(actions, alternatives = []) {
+    let html = '<div class="action-buttons">';
+    
+    actions.forEach(action => {
+        html += `
+            <button 
+                class="action-btn" 
+                data-action="${action.id}"
+                onclick="handleActionClick('${action.id}', ${JSON.stringify(alternatives).replace(/"/g, '&quot;')})">
+                ${escapeHTML(action.label)}
+            </button>
+        `;
+    });
+    
+    html += '</div>';
+    return html;
+}
+
+/**
+ * Renderiza cards de alternativas quando usuário clica "Não é o que eu procurava"
+ * 
+ * @param {Array} alternatives - Lista de alternativas [{id, title, solution}]
+ */
+function renderCards(alternatives) {
+    const messagesArea = document.getElementById('messages');
+    
+    // Cria container de alternativas
+    const cardsDiv = document.createElement('div');
+    cardsDiv.className = 'message bot alternatives';
+    cardsDiv.id = 'alternatives-container';
+    
+    const avatarHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+    `;
+    
+    let html = `
+        <div class="message-avatar">${avatarHTML}</div>
+        <div class="alternatives-content">
+            <div class="message-bubble">
+                <p><strong>Outras soluções que podem ajudar:</strong></p>
+            </div>
+            <div class="alternatives-grid">
+    `;
+    
+    alternatives.forEach(alt => {
+        html += `
+            <div class="alternative-card">
+                <h4 class="card-title">${escapeHTML(alt.title)}</h4>
+                <p class="card-solution">${escapeHTML(alt.solution)}</p>
+                <button 
+                    class="card-btn" 
+                    onclick="handleAlternativeClick('${alt.id}', '${escapeHTML(alt.title)}', '${escapeHTML(alt.solution)}')">
+                    Essa resposta me ajudou
+                </button>
+            </div>
+        `;
+    });
+    
+    html += `
+            </div>
+            <div class="message-time">${getCurrentTime()}</div>
+        </div>
+    `;
+    
+    cardsDiv.innerHTML = html;
+    messagesArea.appendChild(cardsDiv);
+    scrollToBottom();
+}
+
+// ========================================== 
+// HANDLERS DE AÇÕES E FEEDBACK
+// ========================================== 
+
+/**
+ * Manipula clique nos botões de ação principais
+ * 
+ * @param {string} actionId - ID da ação clicada
+ * @param {Array} alternatives - Alternativas disponíveis
+ */
+async function handleActionClick(actionId, alternatives) {
+    console.log('Ação clicada:', actionId);
+    
+    // Desabilita todos os botões de ação
+    document.querySelectorAll('.action-btn').forEach(btn => {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+    });
+    
+    if (actionId === 'helped') {
+        // Usuário foi ajudado - envia feedback positivo
+        await sendActionToBackend({
+            action: 'helped',
+            selected_solution: 'primary',
+            original_question: currentQuestion,
+            timestamp: new Date().toISOString()
+        });
+        
+    } else if (actionId === 'not_helped') {
+        // Usuário não foi ajudado - mostra alternativas
+        if (alternatives && alternatives.length > 0) {
+            renderCards(alternatives);
+        } else {
+            // Sem alternativas - envia feedback negativo
+            await sendActionToBackend({
+                action: 'not_helped',
+                selected_solution: null,
+                original_question: currentQuestion,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+}
+
+/**
+ * Manipula clique em card de alternativa
+ * 
+ * @param {string} altId - ID da alternativa
+ * @param {string} title - Título da alternativa
+ * @param {string} solution - Solução da alternativa
+ */
+async function handleAlternativeClick(altId, title, solution) {
+    console.log('Alternativa clicada:', altId);
+    
+    // Desabilita todos os botões de alternativas
+    document.querySelectorAll('.card-btn').forEach(btn => {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+    });
+    
+    // Envia feedback indicando qual alternativa ajudou
+    await sendActionToBackend({
+        action: 'helped',
+        selected_solution: altId,
+        original_question: currentQuestion,
+        alternative_title: title,
+        timestamp: new Date().toISOString()
+    });
+}
+
+/**
+ * Envia feedback da ação do usuário para o backend
+ * 
+ * @param {Object} feedbackData - Dados do feedback
+ */
+async function sendActionToBackend(feedbackData) {
+    console.log('-> Enviando feedback para backend:', feedbackData);
+    
+    try {
+        const response = await fetch(N8N_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                event: 'user_feedback',
+                user: { id: currentUser.id, name: currentUser.name },
+                session: { id: sessionId },
+                feedback: feedbackData
+            })
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        console.log('<- Resposta do backend ao feedback:', data);
+        
+        // Verifica status de conclusão
+        handleCompletionStatus(data);
+        
+    } catch (error) {
+        console.error('Erro ao enviar feedback:', error);
+        // Não exibe erro ao usuário neste caso, apenas loga
+    }
+}
+
+/**
+ * Manipula estados de finalização da conversa
+ * 
+ * @param {Object} data - Resposta do backend
+ */
+function handleCompletionStatus(data) {
+    const messagesArea = document.getElementById('messages');
+    
+    if (data.status === 'concluido') {
+        // Conversa finalizada - bloqueia novas ações
+        isConversationFinished = true;
+        
+        const conclusionDiv = document.createElement('div');
+        conclusionDiv.className = 'message bot conclusion';
+        conclusionDiv.innerHTML = `
+            <div class="message-avatar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+            </div>
+            <div>
+                <div class="message-bubble success-bubble">
+                    ✅ <strong>Ótimo!</strong> Fico feliz em ter ajudado! Se precisar de mais alguma coisa, estou à disposição.
+                </div>
+                <div class="message-time">${getCurrentTime()}</div>
+            </div>
+        `;
+        
+        messagesArea.appendChild(conclusionDiv);
+        scrollToBottom();
+        
+        // Desabilita input de mensagem
+        const input = document.getElementById('message-input');
+        input.disabled = true;
+        input.placeholder = 'Conversa finalizada. Recarregue a página para iniciar nova conversa.';
+        
+    } else if (data.status === 'nao_concluido') {
+        // Não concluído - pede reformulação
+        const reformulateDiv = document.createElement('div');
+        reformulateDiv.className = 'message bot reformulate';
+        reformulateDiv.innerHTML = `
+            <div class="message-avatar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+            </div>
+            <div>
+                <div class="message-bubble warning-bubble">
+                    💬 Desculpe não ter conseguido ajudar. Pode reformular sua pergunta ou fornecer mais detalhes? Assim posso buscar uma solução melhor para você.
+                </div>
+                <div class="message-time">${getCurrentTime()}</div>
+            </div>
+        `;
+        
+        messagesArea.appendChild(reformulateDiv);
+        scrollToBottom();
+        
+        // Reseta estado para permitir nova pergunta
+        currentQuestion = null;
+        isConversationFinished = false;
+    }
 }
 
 // ========================================== 
